@@ -124,7 +124,7 @@ export function createInitialState(): GameState {
     for (let j = 0; j < 10; j++) {
       bricks.push({
         x: j * (BRICK_WIDTH + 5) + 35,
-        y: i * (BRICK_HEIGHT + 5) + 35,
+        y: i * (BRICK_HEIGHT + 5) + 80,
         width: BRICK_WIDTH,
         height: BRICK_HEIGHT
       });
@@ -247,7 +247,7 @@ function createNewBricks(): Brick[] {
     for (let j = 0; j < 10; j++) {
       bricks.push({
         x: j * (BRICK_WIDTH + 5) + 35,
-        y: i * (BRICK_HEIGHT + 5) + 35,
+        y: i * (BRICK_HEIGHT + 5) + 80,
         width: BRICK_WIDTH,
         height: BRICK_HEIGHT
       });
@@ -317,91 +317,103 @@ function spawnMultiBalls(state: GameState, ball: Ball, count = 2): void {
 export function updateGameState(state: GameState, keys: Set<string>, mousePos: { x: number; y: number } | null, mouseDown: boolean): GameState {
   const currentTime = Date.now();
 
+  // Create a new state object to trigger React re-render
+  const newState: GameState = {
+    ...state,
+    paddle: { ...state.paddle },
+    balls: state.balls.map(b => ({ ...b })),
+    bricks: state.bricks.map(b => ({ ...b })),
+    particles: state.particles.map(p => ({ ...p })),
+    brickParticles: state.brickParticles.map(p => ({ ...p })),
+    specialEffectParticles: state.specialEffectParticles.map(p => ({ ...p })),
+    newBricks: state.newBricks.map(b => ({ ...b })),
+  };
+
   // Handle pause button click
-  if (mouseDown && mousePos && !state.gameOver && !state.levelCleared) {
-    if (!state.buttonPressed) {
-      const pb = state.pauseButton;
+  if (mouseDown && mousePos && !newState.gameOver && !newState.levelCleared) {
+    if (!newState.buttonPressed) {
+      const pb = newState.pauseButton;
       if (mousePos.x >= pb.x && mousePos.x <= pb.x + pb.width &&
           mousePos.y >= pb.y && mousePos.y <= pb.y + pb.height) {
-        state.paused = !state.paused;
-        state.buttonPressed = true;
+        newState.paused = !newState.paused;
+        newState.buttonPressed = true;
       }
     }
   }
 
   if (!mouseDown) {
-    state.buttonPressed = false;
+    newState.buttonPressed = false;
   }
 
-  if (state.gameOver) {
+if (newState.gameOver) {
     // Handle game over screen buttons
-    if (mouseDown && mousePos && !state.buttonPressed) {
-      state.buttonPressed = true;
-      const pab = state.playAgainButton;
-      const rb = state.restartButton;
-      const bb = state.backButton;
+    if (mouseDown && mousePos && !newState.buttonPressed) {
+      newState.buttonPressed = true;
+      const pab = newState.playAgainButton;
+      const rb = newState.restartButton;
+      const bb = newState.backButton;
 
       if (mousePos.x >= pab.x && mousePos.x <= pab.x + pab.width &&
           mousePos.y >= pab.y && mousePos.y <= pab.y + pab.height) {
-        state.gameOver = false;
-        resetGameState(state);
+        newState.gameOver = false;
+        resetGameState(newState);
       } else if (mousePos.x >= rb.x && mousePos.x <= rb.x + rb.width &&
                  mousePos.y >= rb.y && mousePos.y <= rb.y + rb.height) {
-        resetGameState(state);
-        state.gameOver = false;
-        state.paused = false;
+        resetGameState(newState);
+        newState.gameOver = false;
+        newState.paused = false;
       } else if (mousePos.x >= bb.x && mousePos.x <= bb.x + bb.width &&
                  mousePos.y >= bb.y && mousePos.y <= bb.y + bb.height) {
-        state.returnToMenu = true;
+        newState.returnToMenu = true;
       }
     }
-    return state;
+    return newState;
   }
 
-  if (state.paused) {
+  if (newState.paused) {
     // Handle pause screen buttons
-    if (mouseDown && mousePos && !state.buttonPressed) {
-      state.buttonPressed = true;
-      const pab = state.playAgainButton;
-      const rb = state.restartButton;
-      const bb = state.backButton;
+    if (mouseDown && mousePos && !newState.buttonPressed) {
+      newState.buttonPressed = true;
+      const pab = newState.playAgainButton;
+      const rb = newState.restartButton;
+      const bb = newState.backButton;
 
       if (mousePos.x >= pab.x && mousePos.x <= pab.x + pab.width &&
           mousePos.y >= pab.y && mousePos.y <= pab.y + pab.height) {
-        state.paused = false;
+        newState.paused = false;
       } else if (mousePos.x >= rb.x && mousePos.x <= rb.x + rb.width &&
                  mousePos.y >= rb.y && mousePos.y <= rb.y + rb.height) {
-        resetGameState(state);
-        state.gameOver = false;
-        state.paused = false;
+        resetGameState(newState);
+        newState.gameOver = false;
+        newState.paused = false;
       } else if (mousePos.x >= bb.x && mousePos.x <= bb.x + bb.width &&
                  mousePos.y >= bb.y && mousePos.y <= bb.y + bb.height) {
-        state.returnToMenu = true;
+        newState.returnToMenu = true;
       }
     }
-    return state;
+    return newState;
   }
 
   // Handle level transition
-  if (state.levelCleared) {
+  if (newState.levelCleared) {
     // Check if power-up expires during level transition
-    if (state.specialActive && currentTime - state.specialTimer > 5000) {
-      state.specialActive = null;
-      state.paddle.width = PADDLE_WIDTH;
-      state.multiBallSpawned = false;
+    if (newState.specialActive && currentTime - newState.specialTimer > 5000) {
+      newState.specialActive = null;
+      newState.paddle.width = PADDLE_WIDTH;
+      newState.multiBallSpawned = false;
     }
 
     // Gradually add new bricks with animation
-    if (state.newBricks.length > 0 && currentTime - state.lastRefillTime > state.refillDelay) {
-      const brick = state.newBricks.shift()!;
-      state.bricks.push(brick);
-      state.lastRefillTime = currentTime;
+    if (newState.newBricks.length > 0 && currentTime - newState.lastRefillTime > newState.refillDelay) {
+      const brick = newState.newBricks.shift()!;
+      newState.bricks.push(brick);
+      newState.lastRefillTime = currentTime;
 
       for (let i = 0; i < 5; i++) {
-        state.particles.push(createParticle(
+        newState.particles.push(createParticle(
           brick.x + brick.width / 2,
           brick.y + brick.height / 2,
-          BRICK_COLORS[Math.min(4, state.level - 1) % BRICK_COLORS.length],
+          BRICK_COLORS[Math.min(4, newState.level - 1) % BRICK_COLORS.length],
           randomFloat(0.5, 1.5),
           randomFloat(2, 4),
           30
@@ -410,47 +422,47 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
     }
 
     // When all bricks are refilled, resume normal gameplay
-    if (state.newBricks.length === 0) {
-      state.levelCleared = false;
-      state.balls = [{
-        x: state.startingBallPos.x,
-        y: state.startingBallPos.y,
+    if (newState.newBricks.length === 0) {
+      newState.levelCleared = false;
+      newState.balls = [{
+        x: newState.startingBallPos.x,
+        y: newState.startingBallPos.y,
         radius: BALL_RADIUS,
         dx: 0,
         dy: 0
       }];
-      const baseSpeed = 5 + (state.level - 1) * 0.5;
-      state.balls[0].dx = baseSpeed;
-      state.balls[0].dy = -baseSpeed;
-      state.paddle.x = state.startingPaddlePos;
+      const baseSpeed = 5 + (newState.level - 1) * 0.5;
+      newState.balls[0].dx = baseSpeed;
+      newState.balls[0].dy = -baseSpeed;
+      newState.paddle.x = newState.startingPaddlePos;
 
-      state.score += state.level * 50;
+      newState.score += newState.level * 50;
 
-      if (state.paddle.width > PADDLE_WIDTH * 0.7 && !state.specialActive) {
-        state.paddle.width = Math.max(PADDLE_WIDTH * 0.9, state.paddle.width - 5);
-      } else if (state.specialActive === 'big_paddle') {
-        state.paddle.width = 150;
+      if (newState.paddle.width > PADDLE_WIDTH * 0.7 && !newState.specialActive) {
+        newState.paddle.width = Math.max(PADDLE_WIDTH * 0.9, newState.paddle.width - 5);
+      } else if (newState.specialActive === 'big_paddle') {
+        newState.paddle.width = 150;
       }
     }
-    return state;
+    return newState;
   }
 
   // Move paddle
-  if (keys.has('ArrowLeft') && state.paddle.x > 0) {
-    state.paddle.x -= 10;
+  if (keys.has('ArrowLeft') && newState.paddle.x > 0) {
+    newState.paddle.x -= 10;
   }
-  if (keys.has('ArrowRight') && state.paddle.x + state.paddle.width < WIDTH) {
-    state.paddle.x += 10;
+  if (keys.has('ArrowRight') && newState.paddle.x + newState.paddle.width < WIDTH) {
+    newState.paddle.x += 10;
   }
 
   // Update particles
-  updateParticles(state);
+  updateParticles(newState);
 
   // Move and handle collision for all balls
   const ballsToRemove: number[] = [];
   
-  for (let i = 0; i < state.balls.length; i++) {
-    const ball = state.balls[i];
+  for (let i = 0; i < newState.balls.length; i++) {
+    const ball = newState.balls[i];
     
     ball.x += ball.dx;
     ball.y += ball.dy;
@@ -461,7 +473,7 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
       ball.dx = bounce.dx;
       ball.dy = bounce.dy;
       for (let j = 0; j < 5; j++) {
-        state.particles.push(createParticle(ball.x, ball.y, COLORS.BALL_COLOR, randomFloat(1, 2), randomFloat(2, 3), 15));
+        newState.particles.push(createParticle(ball.x, ball.y, COLORS.BALL_COLOR, randomFloat(1, 2), randomFloat(2, 3), 15));
       }
     }
     if (ball.y - ball.radius <= 0) {
@@ -469,55 +481,55 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
       ball.dx = bounce.dx;
       ball.dy = bounce.dy;
       for (let j = 0; j < 5; j++) {
-        state.particles.push(createParticle(ball.x, ball.y, COLORS.BALL_COLOR, randomFloat(1, 2), randomFloat(2, 3), 15));
+        newState.particles.push(createParticle(ball.x, ball.y, COLORS.BALL_COLOR, randomFloat(1, 2), randomFloat(2, 3), 15));
       }
     }
     if (ball.y + ball.radius >= HEIGHT) {
       ballsToRemove.push(i);
       for (let j = 0; j < 10; j++) {
-        state.particles.push(createParticle(ball.x, ball.y, COLORS.RED, randomFloat(2, 3), randomFloat(3, 5), 20));
+        newState.particles.push(createParticle(ball.x, ball.y, COLORS.RED, randomFloat(2, 3), randomFloat(3, 5), 20));
       }
       continue;
     }
 
     // Collision with paddle
-    if (state.collisionCooldown === 0 &&
-        ball.x + ball.radius >= state.paddle.x &&
-        ball.x - ball.radius <= state.paddle.x + state.paddle.width &&
-        ball.y + ball.radius >= state.paddle.y &&
-        ball.y - ball.radius <= state.paddle.y + state.paddle.height) {
+    if (newState.collisionCooldown === 0 &&
+        ball.x + ball.radius >= newState.paddle.x &&
+        ball.x - ball.radius <= newState.paddle.x + newState.paddle.width &&
+        ball.y + ball.radius >= newState.paddle.y &&
+        ball.y - ball.radius <= newState.paddle.y + newState.paddle.height) {
       
-      if (ball.y < state.paddle.y + state.paddle.height / 2) {
-        ball.y = state.paddle.y - ball.radius - 1;
-        const hitPos = (ball.x - state.paddle.x) / state.paddle.width;
+      if (ball.y < newState.paddle.y + newState.paddle.height / 2) {
+        ball.y = newState.paddle.y - ball.radius - 1;
+        const hitPos = (ball.x - newState.paddle.x) / newState.paddle.width;
         const angle = Math.PI * (0.25 + 0.5 * hitPos);
         const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
         ball.dx = Math.cos(angle) * speed;
         ball.dy = -Math.sin(angle) * speed;
-        state.collisionCooldown = 5;
+        newState.collisionCooldown = 5;
         for (let j = 0; j < 8; j++) {
-          state.particles.push(createParticle(ball.x, ball.y, COLORS.PADDLE_COLOR, randomFloat(1, 2), randomFloat(2, 3), 15));
+          newState.particles.push(createParticle(ball.x, ball.y, COLORS.PADDLE_COLOR, randomFloat(1, 2), randomFloat(2, 3), 15));
         }
-      } else if (ball.y > state.paddle.y + state.paddle.height / 2) {
-        ball.y = state.paddle.y + state.paddle.height + ball.radius + 1;
+      } else if (ball.y > newState.paddle.y + newState.paddle.height / 2) {
+        ball.y = newState.paddle.y + newState.paddle.height + ball.radius + 1;
         ball.dy = Math.abs(ball.dy);
-        state.collisionCooldown = 5;
+        newState.collisionCooldown = 5;
       } else {
         ball.dx = -ball.dx;
-        state.collisionCooldown = 5;
+        newState.collisionCooldown = 5;
       }
     }
 
     // Collision with bricks
-    for (let b = 0; b < state.bricks.length; b++) {
-      const brick = state.bricks[b];
-      if (state.collisionCooldown === 0 &&
+    for (let b = 0; b < newState.bricks.length; b++) {
+      const brick = newState.bricks[b];
+      if (newState.collisionCooldown === 0 &&
           ball.x + ball.radius >= brick.x &&
           ball.x - ball.radius <= brick.x + brick.width &&
           ball.y + ball.radius >= brick.y &&
           ball.y - ball.radius <= brick.y + brick.height) {
-        
-        state.brickParticles.push(...createBrickParticles(brick, state.level));
+      
+        newState.brickParticles.push(...createBrickParticles(brick, newState.level));
         
         // Determine collision direction
         const overlapLeft = ball.x + ball.radius - brick.x;
@@ -538,18 +550,18 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
           ball.dy = bounce.dy;
         }
         
-        state.bricks.splice(b, 1);
-        state.score += 10;
-        state.collisionCooldown = 3;
+        newState.bricks.splice(b, 1);
+        newState.score += 10;
+        newState.collisionCooldown = 3;
         
         // Special event trigger
-        if (!state.specialActive) {
+        if (!newState.specialActive) {
           const newSpecial = triggerSpecialEvent();
           if (newSpecial) {
-            state.specialActive = newSpecial;
-            state.specialTimer = currentTime;
-            state.multiBallSpawned = false;
-            state.specialEffectParticles.push(...createSpecialEffect(brick.x + brick.width / 2, brick.y + brick.height / 2, newSpecial));
+            newState.specialActive = newSpecial;
+            newState.specialTimer = currentTime;
+            newState.multiBallSpawned = false;
+            newState.specialEffectParticles.push(...createSpecialEffect(brick.x + brick.width / 2, brick.y + brick.height / 2, newSpecial));
           }
         }
         break;
@@ -558,7 +570,7 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
 
     // Add ball trail particles
     if (Math.random() < 0.3) {
-      state.particles.push(createParticle(
+      newState.particles.push(createParticle(
         ball.x,
         ball.y,
         COLORS.BALL_COLOR,
@@ -571,55 +583,55 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
 
   // Remove balls that went out of bounds
   for (const i of ballsToRemove.sort((a, b) => b - a)) {
-    if (i < state.balls.length) {
-      state.balls.splice(i, 1);
+    if (i < newState.balls.length) {
+      newState.balls.splice(i, 1);
     }
   }
 
   // Update collision cooldown
-  if (state.collisionCooldown > 0) {
-    state.collisionCooldown--;
+  if (newState.collisionCooldown > 0) {
+    newState.collisionCooldown--;
   }
 
   // Apply special events
-  if (state.specialActive) {
-    if (state.specialActive === 'big_paddle') {
-      state.paddle.width = 150;
-    } else if (state.specialActive === 'score_boost') {
-      state.score += 5;
-    } else if (state.specialActive === 'multi_ball') {
-      if (!state.multiBallSpawned && state.balls.length > 0) {
-        spawnMultiBalls(state, state.balls[0]);
+  if (newState.specialActive) {
+    if (newState.specialActive === 'big_paddle') {
+      newState.paddle.width = 150;
+    } else if (newState.specialActive === 'score_boost') {
+      newState.score += 5;
+    } else if (newState.specialActive === 'multi_ball') {
+      if (!newState.multiBallSpawned && newState.balls.length > 0) {
+        spawnMultiBalls(newState, newState.balls[0]);
       }
     }
 
-    if (currentTime - state.specialTimer > 5000) {
-      state.specialActive = null;
-      state.paddle.width = PADDLE_WIDTH;
-      state.multiBallSpawned = false;
+    if (currentTime - newState.specialTimer > 5000) {
+      newState.specialActive = null;
+      newState.paddle.width = PADDLE_WIDTH;
+      newState.multiBallSpawned = false;
     }
   }
 
   // Win condition
-  if (state.bricks.length === 0 && !state.levelCleared) {
-    state.levelCleared = true;
-    state.level++;
-    state.newBricks = createNewBricks();
-    state.lastRefillTime = currentTime;
-    state.startingBallPos = { x: WIDTH / 2, y: HEIGHT - 100 };
-    state.startingPaddlePos = WIDTH / 2 - PADDLE_WIDTH / 2;
-    state.balls = [{
-      x: state.startingBallPos.x,
-      y: state.startingBallPos.y,
+  if (newState.bricks.length === 0 && !newState.levelCleared) {
+    newState.levelCleared = true;
+    newState.level++;
+    newState.newBricks = createNewBricks();
+    newState.lastRefillTime = currentTime;
+    newState.startingBallPos = { x: WIDTH / 2, y: HEIGHT - 100 };
+    newState.startingPaddlePos = WIDTH / 2 - PADDLE_WIDTH / 2;
+    newState.balls = [{
+      x: newState.startingBallPos.x,
+      y: newState.startingBallPos.y,
       radius: BALL_RADIUS,
       dx: 5,
       dy: -5
     }];
-    state.paddle.x = state.startingPaddlePos;
-    state.levelTransitionMessageTime = currentTime + 3000;
+    newState.paddle.x = newState.startingPaddlePos;
+    newState.levelTransitionMessageTime = currentTime + 3000;
     
     for (let i = 0; i < 30; i++) {
-      state.specialEffectParticles.push(createParticle(
+      newState.specialEffectParticles.push(createParticle(
         randomInt(0, WIDTH),
         randomInt(0, HEIGHT / 2),
         BRICK_COLORS[randomInt(0, BRICK_COLORS.length - 1)],
@@ -630,7 +642,7 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
     }
   }
 
-  return state;
+  return newState;
 }
 
 function updateParticles(state: GameState): void {

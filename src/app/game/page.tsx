@@ -26,12 +26,33 @@ export default function GamePage() {
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const animationFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+  
+  // Refs for input state and gameState to avoid recreating gameLoop
+  const keysRef = useRef<Set<string>>(new Set());
+  const mousePosRef = useRef<{ x: number; y: number } | null>(null);
+  const mouseDownRef = useRef(false);
+  const gameStateRef = useRef<GameState | null>(null);
 
-  // Initialize game
+  // Keep gameStateRef in sync
   useEffect(() => {
-    setGameState(createInitialState());
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+// Initialize game and start loop
+  useEffect(() => {
+    const initialState = createInitialState();
+    setGameState(initialState);
     setScoreSubmitted(false);
+    gameStateRef.current = initialState;
+    lastTimeRef.current = performance.now();
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+    return () => cancelAnimationFrame(animationFrameRef.current);
   }, []);
+
+  // Keep gameStateRef in sync
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   // Handle keyboard input
   useEffect(() => {
@@ -39,7 +60,12 @@ export default function GamePage() {
       if (['ArrowLeft', 'ArrowRight', ' ', 'p', 'P'].includes(e.key)) {
         e.preventDefault();
       }
-      setKeys(prev => new Set(prev).add(e.key));
+      setKeys(prev => {
+        const next = new Set(prev);
+        next.add(e.key);
+        keysRef.current = next;
+        return next;
+      });
       
       if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
         setGameState(prev => prev ? { ...prev, paused: !prev.paused } : prev);
@@ -50,6 +76,7 @@ export default function GamePage() {
       setKeys(prev => {
         const next = new Set(prev);
         next.delete(e.key);
+        keysRef.current = next;
         return next;
       });
     };
@@ -69,11 +96,25 @@ export default function GamePage() {
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      // Scale mouse coordinates from display size to internal 800x600
+      const scaleX = WIDTH / rect.width;
+      const scaleY = HEIGHT / rect.height;
+      const pos = { 
+        x: (e.clientX - rect.left) * scaleX, 
+        y: (e.clientY - rect.top) * scaleY 
+      };
+      setMousePos(pos);
+      mousePosRef.current = pos;
     };
 
-    const handleMouseDown = () => setMouseDown(true);
-    const handleMouseUp = () => setMouseDown(false);
+    const handleMouseDown = () => {
+      setMouseDown(true);
+      mouseDownRef.current = true;
+    };
+    const handleMouseUp = () => {
+      setMouseDown(false);
+      mouseDownRef.current = false;
+    };
 
     canvas.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
@@ -100,7 +141,8 @@ export default function GamePage() {
 
   // Game loop
   const gameLoop = useCallback((currentTime: number) => {
-    if (!gameState) return;
+    const currentState = gameStateRef.current;
+    if (!currentState) return;
 
     const deltaTime = currentTime - lastTimeRef.current;
     lastTimeRef.current = currentTime;
@@ -113,20 +155,11 @@ export default function GamePage() {
 
     setGameState(prev => {
       if (!prev) return prev;
-      return updateGameState(prev, keys, mousePos, mouseDown);
+      return updateGameState(prev, keysRef.current, mousePosRef.current, mouseDownRef.current);
     });
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState, keys, mousePos, mouseDown]);
-
-  // Start game loop
-  useEffect(() => {
-    if (gameState) {
-      lastTimeRef.current = performance.now();
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
-    }
-    return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [gameState, gameLoop]);
+  }, []);
 
   // Handle return to menu
   useEffect(() => {
