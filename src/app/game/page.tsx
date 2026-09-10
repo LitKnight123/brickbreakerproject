@@ -49,11 +49,6 @@ export default function GamePage() {
     return () => cancelAnimationFrame(animationFrameRef.current);
   }, []);
 
-  // Keep gameStateRef in sync
-  useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
-
   // Handle keyboard input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -170,7 +165,7 @@ export default function GamePage() {
   }, [gameState?.returnToMenu, router]);
 
   // Draw game
-  const draw = useCallback((ctx: CanvasRenderingContext2D, state: GameState) => {
+  const draw = useCallback((ctx: CanvasRenderingContext2D, state: GameState, currentMousePos: { x: number; y: number } | null) => {
     // Clear canvas
     ctx.fillStyle = COLORS.DARK_BG;
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -191,16 +186,16 @@ export default function GamePage() {
 
     // Draw pause button
     if (!state.gameOver) {
-      drawPauseButton(ctx, state, mousePos);
+      drawPauseButton(ctx, state, currentMousePos);
     }
 
     if (state.gameOver) {
-      drawGameOver(ctx, state, mousePos);
+      drawGameOver(ctx, state, currentMousePos);
       return;
     }
 
     if (state.paused) {
-      drawPauseScreen(ctx, state, mousePos);
+      drawPauseScreen(ctx, state, currentMousePos);
       return;
     }
 
@@ -243,13 +238,13 @@ export default function GamePage() {
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
 
-    draw(ctx, gameState);
-  }, [gameState, draw]);
+    draw(ctx, gameState, mousePos);
+  }, [gameState, draw, mousePos]);
 
   if (!gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0F1423] to-[#1E2D50]">
-        <div className="animate-pulse-slow text-cyan-400 text-2xl">Loading game...</div>
+        <div className="animate-pulse-slow text-cyan-400 text-2xl">Loading...</div>
       </div>
     );
   }

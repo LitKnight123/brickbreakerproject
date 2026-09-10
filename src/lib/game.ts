@@ -371,12 +371,12 @@ if (newState.gameOver) {
   }
 
   if (newState.paused) {
-    // Handle pause screen buttons
+    // Handle pause screen buttons (buttons are drawn at y - 50)
     if (mouseDown && mousePos && !newState.buttonPressed) {
       newState.buttonPressed = true;
-      const pab = newState.playAgainButton;
-      const rb = newState.restartButton;
-      const bb = newState.backButton;
+      const pab = { ...newState.playAgainButton, y: newState.playAgainButton.y - 50 };
+      const rb = { ...newState.restartButton, y: newState.restartButton.y - 50 };
+      const bb = { ...newState.backButton, y: newState.backButton.y - 50 };
 
       if (mousePos.x >= pab.x && mousePos.x <= pab.x + pab.width &&
           mousePos.y >= pab.y && mousePos.y <= pab.y + pab.height) {
@@ -586,6 +586,11 @@ if (newState.gameOver) {
     if (i < newState.balls.length) {
       newState.balls.splice(i, 1);
     }
+  }
+
+  // Game over when no balls left
+  if (newState.balls.length === 0) {
+    newState.gameOver = true;
   }
 
   // Update collision cooldown
