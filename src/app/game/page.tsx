@@ -21,7 +21,6 @@ export default function GamePage() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [mouseDown, setMouseDown] = useState(false);
   const [returnToMenu, setReturnToMenu] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const animationFrameRef = useRef<number>(0);
@@ -102,25 +101,19 @@ export default function GamePage() {
       mousePosRef.current = pos;
     };
 
-    const handleMouseDown = () => {
-      setMouseDown(true);
+    const handleMouseDown = (e: MouseEvent) => {
+      handleMouseMove(e);
       mouseDownRef.current = true;
-    };
-    const handleMouseUp = () => {
-      setMouseDown(false);
-      mouseDownRef.current = false;
     };
 
     canvas.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       canvas.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [gameState !== null]);
 
   // Submit score when game over
   useEffect(() => {
@@ -140,7 +133,6 @@ export default function GamePage() {
     if (!currentState) return;
 
     const deltaTime = currentTime - lastTimeRef.current;
-    lastTimeRef.current = currentTime;
 
     // Target 60 FPS
     if (deltaTime < 16) {
@@ -148,9 +140,13 @@ export default function GamePage() {
       return;
     }
 
+    lastTimeRef.current = currentTime;
+    const mouseDown = mouseDownRef.current;
+    mouseDownRef.current = false;
+
     setGameState(prev => {
       if (!prev) return prev;
-      return updateGameState(prev, keysRef.current, mousePosRef.current, mouseDownRef.current);
+      return updateGameState(prev, keysRef.current, mousePosRef.current, mouseDown);
     });
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
