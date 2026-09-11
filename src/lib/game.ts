@@ -2,6 +2,7 @@
 export const WIDTH = 800;
 export const HEIGHT = 600;
 export const FPS = 60;
+export const SKILL_DURATION = 6000;
 
 export const PADDLE_WIDTH = 100;
 export const PADDLE_HEIGHT = 15;
@@ -62,6 +63,7 @@ export interface Brick {
   y: number;
   width: number;
   height: number;
+  reinforced?: boolean;
 }
 
 export interface Paddle {
@@ -71,7 +73,17 @@ export interface Paddle {
   height: number;
 }
 
-export type SpecialType = 'big_paddle' | 'score_boost' | 'multi_ball' | null;
+export type SpecialType = 'multi_ball' | 'explosive' | null;
+
+export interface FallingSkill {
+  x: number;
+  y: number;
+  velocity: number;
+  radius: number;
+  type: Exclude<SpecialType, null>;
+}
+
+type SkillSound = 'drop' | 'catch' | 'miss';
 
 export interface GameState {
   paddle: Paddle;
@@ -80,6 +92,8 @@ export interface GameState {
   particles: Particle[];
   brickParticles: Particle[];
   specialEffectParticles: Particle[];
+  fallingSkills: FallingSkill[];
+  skillSound: { type: SkillSound; id: number } | null;
   score: number;
   level: number;
   gameOver: boolean;
@@ -126,7 +140,8 @@ export function createInitialState(): GameState {
         x: j * (BRICK_WIDTH + 5) + 35,
         y: i * (BRICK_HEIGHT + 5) + 80,
         width: BRICK_WIDTH,
-        height: BRICK_HEIGHT
+        height: BRICK_HEIGHT,
+        reinforced: i === 0
       });
     }
   }
@@ -138,6 +153,8 @@ export function createInitialState(): GameState {
     particles: [],
     brickParticles: [],
     specialEffectParticles: [],
+    fallingSkills: [],
+    skillSound: null,
     score: 0,
     level: 1,
     gameOver: false,
@@ -212,9 +229,8 @@ function createBrickParticles(brick: Brick, level: number): Particle[] {
 
 function createSpecialEffect(x: number, y: number, specialType: SpecialType): Particle[] {
   let color = '#DCDC78'; // Default yellow
-  if (specialType === 'big_paddle') color = '#64DC64'; // Green
-  else if (specialType === 'score_boost') color = '#DCB464'; // Orange
-  else if (specialType === 'multi_ball') color = '#64B4DC'; // Blue
+  if (specialType === 'explosive') color = '#DC8C3C';
+  else if (specialType === 'multi_ball') color = '#64B4DC';
 
   const particles: Particle[] = [];
   for (let i = 0; i < 20; i++) {
@@ -233,12 +249,39 @@ function createSpecialEffect(x: number, y: number, specialType: SpecialType): Pa
   return particles;
 }
 
-function triggerSpecialEvent(): SpecialType {
-  if (randomInt(1, 10) === 1) {
-    const specials: SpecialType[] = ['multi_ball', 'big_paddle', 'score_boost'];
-    return specials[randomInt(0, specials.length - 1)];
-  }
-  return null;
+function spawnFallingSkill(state: GameState, brick: Brick): void {
+  if (Math.random() >= (brick.reinforced ? 0.35 : 0.12)) return;
+  const type: Exclude<SpecialType, null> = Math.random() < 0.5 ? 'multi_ball' : 'explosive';
+  state.fallingSkills.push({
+    x: brick.x + brick.width / 2,
+    y: brick.y + brick.height / 2,
+    velocity: 2, // 120 px/s at the fixed 60 FPS loop
+    radius: 12,
+    type
+  });
+  state.specialEffectParticles.push(...createSpecialEffect(brick.x + brick.width / 2, brick.y + brick.height / 2, type));
+  state.skillSound = { type: 'drop', id: Date.now() };
+}
+
+function updateFallingSkills(state: GameState, currentTime: number): void {
+  state.fallingSkills = state.fallingSkills.filter(skill => {
+    skill.velocity = Math.min(skill.velocity + 40 / (FPS * FPS), 280 / FPS);
+    skill.y += skill.velocity;
+    const caught = skill.x + skill.radius >= state.paddle.x &&
+      skill.x - skill.radius <= state.paddle.x + state.paddle.width &&
+      skill.y + skill.radius >= state.paddle.y &&
+      skill.y - skill.radius <= state.paddle.y + state.paddle.height;
+    if (caught) {
+      state.specialActive = skill.type;
+      state.specialTimer = currentTime;
+      state.multiBallSpawned = false;
+      state.specialEffectParticles.push(...createSpecialEffect(skill.x, skill.y, skill.type));
+      state.skillSound = { type: 'catch', id: Date.now() };
+      return false;
+    }
+    if (skill.y - skill.radius > HEIGHT + skill.radius) state.skillSound = { type: 'miss', id: Date.now() };
+    return skill.y - skill.radius <= HEIGHT + skill.radius;
+  });
 }
 
 function createNewBricks(): Brick[] {
@@ -249,7 +292,8 @@ function createNewBricks(): Brick[] {
         x: j * (BRICK_WIDTH + 5) + 35,
         y: i * (BRICK_HEIGHT + 5) + 80,
         width: BRICK_WIDTH,
-        height: BRICK_HEIGHT
+        height: BRICK_HEIGHT,
+        reinforced: i === 0
       });
     }
   }
@@ -275,6 +319,8 @@ function resetGameState(state: GameState): void {
   state.particles = [];
   state.brickParticles = [];
   state.specialEffectParticles = [];
+  state.fallingSkills = [];
+  state.skillSound = null;
   state.level = 1;
   state.levelCleared = false;
   state.newBricks = [];
@@ -326,6 +372,7 @@ export function updateGameState(state: GameState, keys: Set<string>, mousePos: {
     particles: state.particles.map(p => ({ ...p })),
     brickParticles: state.brickParticles.map(p => ({ ...p })),
     specialEffectParticles: state.specialEffectParticles.map(p => ({ ...p })),
+    fallingSkills: state.fallingSkills.map(skill => ({ ...skill })),
     newBricks: state.newBricks.map(b => ({ ...b })),
   };
 
@@ -397,9 +444,8 @@ if (newState.gameOver) {
   // Handle level transition
   if (newState.levelCleared) {
     // Check if power-up expires during level transition
-    if (newState.specialActive && currentTime - newState.specialTimer > 5000) {
+    if (newState.specialActive && currentTime - newState.specialTimer > SKILL_DURATION) {
       newState.specialActive = null;
-      newState.paddle.width = PADDLE_WIDTH;
       newState.multiBallSpawned = false;
     }
 
@@ -438,11 +484,6 @@ if (newState.gameOver) {
 
       newState.score += newState.level * 50;
 
-      if (newState.paddle.width > PADDLE_WIDTH * 0.7 && !newState.specialActive) {
-        newState.paddle.width = Math.max(PADDLE_WIDTH * 0.9, newState.paddle.width - 5);
-      } else if (newState.specialActive === 'big_paddle') {
-        newState.paddle.width = 150;
-      }
     }
     return newState;
   }
@@ -454,6 +495,8 @@ if (newState.gameOver) {
   if (keys.has('ArrowRight') && newState.paddle.x + newState.paddle.width < WIDTH) {
     newState.paddle.x += 10;
   }
+
+  updateFallingSkills(newState, currentTime);
 
   // Update particles
   updateParticles(newState);
@@ -540,7 +583,17 @@ if (newState.gameOver) {
         const minOverlapX = Math.min(overlapLeft, overlapRight);
         const minOverlapY = Math.min(overlapTop, overlapBottom);
         
-        if (minOverlapX < minOverlapY) {
+        if (newState.specialActive === 'explosive') {
+          newState.bricks = newState.bricks.filter(candidate => {
+            const hit = Math.hypot(
+              candidate.x + candidate.width / 2 - (brick.x + brick.width / 2),
+              candidate.y + candidate.height / 2 - (brick.y + brick.height / 2)
+            ) <= 60;
+            if (hit && candidate !== brick) newState.brickParticles.push(...createBrickParticles(candidate, newState.level));
+            return !hit;
+          });
+          newState.score += 10;
+        } else if (minOverlapX < minOverlapY) {
           const bounce = applyBounceRandomness(-ball.dx, ball.dy);
           ball.dx = bounce.dx;
           ball.dy = bounce.dy;
@@ -550,20 +603,12 @@ if (newState.gameOver) {
           ball.dy = bounce.dy;
         }
         
-        newState.bricks.splice(b, 1);
-        newState.score += 10;
-        newState.collisionCooldown = 3;
-        
-        // Special event trigger
-        if (!newState.specialActive) {
-          const newSpecial = triggerSpecialEvent();
-          if (newSpecial) {
-            newState.specialActive = newSpecial;
-            newState.specialTimer = currentTime;
-            newState.multiBallSpawned = false;
-            newState.specialEffectParticles.push(...createSpecialEffect(brick.x + brick.width / 2, brick.y + brick.height / 2, newSpecial));
-          }
+        if (newState.specialActive !== 'explosive') {
+          newState.bricks.splice(b, 1);
+          newState.score += 10;
         }
+        newState.collisionCooldown = 3;
+        spawnFallingSkill(newState, brick);
         break;
       }
     }
@@ -600,19 +645,14 @@ if (newState.gameOver) {
 
   // Apply special events
   if (newState.specialActive) {
-    if (newState.specialActive === 'big_paddle') {
-      newState.paddle.width = 150;
-    } else if (newState.specialActive === 'score_boost') {
-      newState.score += 5;
-    } else if (newState.specialActive === 'multi_ball') {
+    if (newState.specialActive === 'multi_ball') {
       if (!newState.multiBallSpawned && newState.balls.length > 0) {
         spawnMultiBalls(newState, newState.balls[0]);
       }
     }
 
-    if (currentTime - newState.specialTimer > 5000) {
+    if (currentTime - newState.specialTimer > SKILL_DURATION) {
       newState.specialActive = null;
-      newState.paddle.width = PADDLE_WIDTH;
       newState.multiBallSpawned = false;
     }
   }
