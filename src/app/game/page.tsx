@@ -12,7 +12,8 @@ import {
   BRICK_COLORS,
   PADDLE_WIDTH,
   PADDLE_HEIGHT,
-  BALL_RADIUS
+  BALL_RADIUS,
+  SKILL_DURATION
 } from '@/lib/game';
 
 export default function GamePage() {
@@ -127,6 +128,10 @@ export default function GamePage() {
     }
   }, [gameState?.gameOver, scoreSubmitted]);
 
+  useEffect(() => {
+    if (gameState?.skillSound) playSkillSound(gameState.skillSound.type);
+  }, [gameState?.skillSound?.id]);
+
   // Game loop
   const gameLoop = useCallback((currentTime: number) => {
     const currentState = gameStateRef.current;
@@ -207,6 +212,8 @@ export default function GamePage() {
     state.balls.forEach((ball, i) => {
       drawBall(ctx, ball, state.specialActive);
     });
+
+    drawFallingSkills(ctx, state.fallingSkills);
 
     // Draw bricks
     drawBricks(ctx, state.bricks);
@@ -349,6 +356,18 @@ function drawStars(ctx: CanvasRenderingContext2D) {
   }
 }
 
+function playSkillSound(type: 'drop' | 'catch' | 'miss') {
+  const audio = new AudioContext();
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+  oscillator.frequency.value = type === 'catch' ? 880 : type === 'drop' ? 660 : 180;
+  gain.gain.setValueAtTime(0.06, audio.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
+  oscillator.connect(gain).connect(audio.destination);
+  oscillator.start();
+  oscillator.stop(audio.currentTime + 0.12);
+}
+
 function drawScore(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.fillStyle = 'rgba(48, 48, 96, 0.8)';
   roundRect(ctx, 50, 10, 140, 35, 8, true);
@@ -385,7 +404,7 @@ function drawPauseButton(ctx: CanvasRenderingContext2D, state: GameState, mouseP
 
 function drawPaddle(ctx: CanvasRenderingContext2D, paddle: { x: number; y: number; width: number; height: number }, specialActive: string | null) {
   // Glow effect
-  const glowColor = specialActive === 'big_paddle' ? '#B4DC78' : specialActive ? '#DCB478' : '#78DCFF';
+  const glowColor = specialActive === 'explosive' ? '#FFB05A' : specialActive ? '#64C8FF' : '#78DCFF';
   for (let i = 0; i < 3; i++) {
     ctx.fillStyle = hexToRgba(glowColor, (100 - i * 30) / 255);
     roundRect(ctx, paddle.x - 5 + i, paddle.y - 5 + i, paddle.width + 10 - i * 2, paddle.height + 10 - i * 2, 8, true);
@@ -415,7 +434,7 @@ function drawBall(ctx: CanvasRenderingContext2D, ball: { x: number; y: number; r
   }
 
   // Main ball
-  ctx.fillStyle = COLORS.BALL_COLOR;
+  ctx.fillStyle = specialActive === 'explosive' ? '#FF8A3D' : COLORS.BALL_COLOR;
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
@@ -425,6 +444,27 @@ function drawBall(ctx: CanvasRenderingContext2D, ball: { x: number; y: number; r
   ctx.beginPath();
   ctx.arc(ball.x - ball.radius / 3, ball.y - ball.radius / 3, ball.radius / 3, 0, Math.PI * 2);
   ctx.fill();
+}
+
+function drawFallingSkills(ctx: CanvasRenderingContext2D, skills: GameState['fallingSkills']) {
+  skills.forEach(skill => {
+    const color = skill.type === 'multi_ball' ? '#64C8FF' : '#FF9A45';
+    const glow = ctx.createRadialGradient(skill.x, skill.y, 2, skill.x, skill.y, skill.radius * 2);
+    glow.addColorStop(0, color);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(skill.x, skill.y, skill.radius * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(skill.x, skill.y, skill.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = COLORS.WHITE;
+    ctx.font = 'bold 15px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(skill.type === 'multi_ball' ? '...' : '*', skill.x, skill.y + 5);
+  });
 }
 
 function drawBricks(ctx: CanvasRenderingContext2D, bricks: Array<{ x: number; y: number; width: number; height: number }>) {
@@ -465,8 +505,8 @@ function drawParticles(ctx: CanvasRenderingContext2D, particles: Array<{ x: numb
 function drawSpecialIndicator(ctx: CanvasRenderingContext2D, specialActive: string, specialTimer: number) {
   const currentTime = Date.now();
   const elapsed = currentTime - specialTimer;
-  const remaining = Math.max(0, 5000 - elapsed);
-  const progress = remaining / 5000;
+  const remaining = Math.max(0, SKILL_DURATION - elapsed);
+  const progress = remaining / SKILL_DURATION;
 
   const indicatorWidth = 150;
   const indicatorHeight = 25;
@@ -478,10 +518,7 @@ function drawSpecialIndicator(ctx: CanvasRenderingContext2D, specialActive: stri
   roundRect(ctx, x, y, indicatorWidth, indicatorHeight, 5, true);
 
   // Progress bar
-  let barColor = '#DCDC78';
-  if (specialActive === 'big_paddle') barColor = '#64DC64';
-  else if (specialActive === 'score_boost') barColor = '#DCB464';
-  else if (specialActive === 'multi_ball') barColor = '#64B4DC';
+  const barColor = specialActive === 'explosive' ? '#FF9A45' : '#64C8FF';
 
   ctx.fillStyle = barColor;
   roundRect(ctx, x, y, indicatorWidth * progress, indicatorHeight, 5, true);
@@ -495,7 +532,7 @@ function drawSpecialIndicator(ctx: CanvasRenderingContext2D, specialActive: stri
   ctx.fillStyle = COLORS.WHITE;
   ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'center';
-  const displayName = specialActive.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const displayName = specialActive === 'multi_ball' ? 'Multiball' : 'Explosive';
   ctx.fillText(displayName, x + indicatorWidth / 2, y + 18);
 }
 
