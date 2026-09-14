@@ -222,6 +222,8 @@ export default function DashboardPage() {
           username={username}
           userRole={userRole}
           userStats={userStats}
+          playtimeStats={playtimeStats}
+          onBack={() => setActiveTab('main')}
           onEditUsername={() => { setShowEditUsername(true); setEditUsername(username); setEditError(''); }}
           onChangePassword={() => { setShowChangePassword(true); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); setPasswordError(''); }}
           onDeleteAccount={() => setShowDeleteConfirm(true)}
@@ -538,21 +540,32 @@ function LeaderboardTab() {
   );
 }
 
-function ProfileTab({ username, userStats, onEditUsername, onDeleteAccount }: {
 function ProfileTab({ username, userRole, userStats, playtimeStats, onBack, onEditUsername, onChangePassword, onDeleteAccount, onGoToAdmin }: {
   username: string;
   userRole: string;
   userStats: UserStats | null;
-  playtimeStats: PlaytimeStats | null;
+  playtimeStats: PlaytimeStats | null; 
   onBack: () => void;
   onEditUsername: () => void;
   onChangePassword: () => void;
-  onDeleteAccount: () => void;
+  onDeleteAccount: () => void; 
   onGoToAdmin: () => void;
 }) {
   return (
     <div className="min-h-[calc(100vh-57px)] px-4 py-10 relative z-10 max-w-2xl mx-auto animate-fadeIn">
-      <h1 className="text-xl font-bold text-white tracking-wide mb-6">Profil Pemain</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={onBack}
+          title="Kembali"
+          className="p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors active:scale-95"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+        </button>
+        <h1 className="text-xl font-bold text-white tracking-wide">Profil Pemain</h1>
+      </div>
 
       <div className="bg-slate-900/80 backdrop-blur-md rounded-xl p-6 border border-slate-800 shadow-xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
