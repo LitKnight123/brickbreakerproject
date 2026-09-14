@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface UserStats {
@@ -144,28 +144,31 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-x-hidden selection:bg-cyan-500 selection:text-white">
       <StarsBackground />
-      
+
+      <Header
+        activeTab={activeTab}
+        username={username}
+        onNavigate={setActiveTab}
+        onLogout={handleLogout}
+      />
+
       {activeTab === 'main' && (
-        <MainMenu 
+        <MainMenu
           username={username}
           userStats={userStats}
           globalStats={globalStats}
           onPlay={startGame}
-          onLeaderboard={() => setActiveTab('leaderboard')}
-          onProfile={() => setActiveTab('profile')}
-          onLogout={handleLogout}
         />
       )}
 
       {activeTab === 'leaderboard' && (
-        <LeaderboardTab onBack={() => setActiveTab('main')} />
+        <LeaderboardTab />
       )}
 
       {activeTab === 'profile' && (
         <ProfileTab
           username={username}
           userStats={userStats}
-          onBack={() => setActiveTab('main')}
           onEditUsername={() => { setShowEditUsername(true); setEditUsername(username); setEditError(''); }}
           onDeleteAccount={() => setShowDeleteConfirm(true)}
         />
@@ -244,17 +247,126 @@ function StarsBackground() {
   );
 }
 
-function MainMenu({ username, userStats, globalStats, onPlay, onLeaderboard, onProfile, onLogout }: {
+function Header({ activeTab, username, onNavigate, onLogout }: {
+  activeTab: 'main' | 'leaderboard' | 'profile';
+  username: string;
+  onNavigate: (tab: 'main' | 'leaderboard' | 'profile') => void;
+  onLogout: () => void;
+}) {
+  return (
+    <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/60 shadow-xl shadow-black/40">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-4">
+        
+        {/* LOGO SECTION */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 border border-cyan-400/20">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <path strokeLinecap="round" d="M7 12h.01M17 12h.01M12 6v12" />
+            </svg>
+          </div>
+          <span className="hidden md:block font-black text-sm tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-300">
+            BRICK BREAKER
+          </span>
+        </div>
+
+        {/* NAVIGATION MENU */}
+        <nav className="flex items-center gap-1 sm:gap-2 bg-slate-900/80 border border-slate-800/80 rounded-xl p-1.5 shadow-inner">
+          <NavButton 
+            label="Home" 
+            active={activeTab === 'main'} 
+            onClick={() => onNavigate('main')}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="9" rx="1"/>
+                <rect x="14" y="3" width="7" height="5" rx="1"/>
+                <rect x="14" y="12" width="7" height="9" rx="1"/>
+                <rect x="3" y="16" width="7" height="5" rx="1"/>
+              </svg>
+            }
+          />
+          <NavButton 
+            label="Scoreboard" 
+            active={activeTab === 'leaderboard'} 
+            onClick={() => onNavigate('leaderboard')}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                <path d="M4 22h16"/>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+              </svg>
+            }
+          />
+          <NavButton 
+            label="Profile" 
+            active={activeTab === 'profile'} 
+            onClick={() => onNavigate('profile')}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            }
+          />
+        </nav>
+
+        {/* USER PROFILE & LOGOUT */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="hidden sm:flex flex-col items-end justify-center">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1">Pemain</span>
+            <span className="text-xs font-bold text-cyan-300 leading-none">{username}</span>
+          </div>
+          
+          <div className="hidden sm:block w-px h-8 bg-slate-800/80"></div>
+          
+          <button
+            onClick={onLogout}
+            title="Keluar"
+            className="group flex items-center justify-center gap-2 p-2 sm:px-3 sm:py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 transition-all duration-300 active:scale-95"
+          >
+            <svg className="w-4 h-4 text-rose-400 group-hover:text-rose-300 transition-colors" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span className="hidden md:block text-rose-400 group-hover:text-rose-300 text-xs font-bold transition-colors">
+              Keluar
+            </span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function NavButton({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-300 active:scale-95 ${
+        active 
+          ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-900/40 border border-cyan-400/30' 
+          : 'text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent'
+      }`}
+    >
+      {icon}
+      <span className="hidden sm:block">{label}</span>
+    </button>
+  );
+}
+
+function MainMenu({ username, userStats, globalStats, onPlay }: {
   username: string;
   userStats: UserStats | null;
   globalStats: GlobalStats | null;
   onPlay: () => void;
-  onLeaderboard: () => void;
-  onProfile: () => void;
-  onLogout: () => void;
 }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative z-10 max-w-4xl mx-auto animate-fadeIn">
+    <div className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center px-4 py-12 relative z-10 max-w-4xl mx-auto animate-fadeIn">
       <div className="text-center mb-10">
         <h1 className="text-4xl md:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 mb-2">
           BRICK BREAKER
@@ -264,35 +376,14 @@ function MainMenu({ username, userStats, globalStats, onPlay, onLeaderboard, onP
         </p>
       </div>
 
-      {/* Tombol Menu Utama */}
-      <div className="w-full max-w-xs space-y-3 mb-12">
+      {/* Tombol Mulai */}
+      <div className="w-full max-w-xs mb-12">
         <button
           onClick={onPlay}
           className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-3 px-4 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-emerald-950/30 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           Mulai Permainan
-        </button>
-        <button
-          onClick={onLeaderboard}
-          className="w-full bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 border border-slate-800 hover:border-slate-700 hover:-translate-y-0.5 active:translate-y-0 shadow-sm flex items-center justify-center gap-2"
-        >
-          <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"></path></svg>
-          Papan Skor
-        </button>
-        <button
-          onClick={onProfile}
-          className="w-full bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 border border-slate-800 hover:border-slate-700 hover:-translate-y-0.5 active:translate-y-0 shadow-sm flex items-center justify-center gap-2"
-        >
-          <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          Profil Saya
-        </button>
-        <button
-          onClick={onLogout}
-          className="w-full bg-transparent hover:bg-rose-950/20 text-rose-400 font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 border border-rose-950/40 hover:border-rose-900/60 flex items-center justify-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          Keluar
         </button>
       </div>
 
@@ -333,7 +424,7 @@ function StatCard({ title, items }: { title: string; items: Array<{ label: strin
   );
 }
 
-function LeaderboardTab({ onBack }: { onBack: () => void }) {
+function LeaderboardTab() {
   const [scores, setScores] = useState<Array<{ username: string; score: number }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -347,16 +438,8 @@ function LeaderboardTab({ onBack }: { onBack: () => void }) {
   }, []);
 
   return (
-    <div className="min-h-screen px-4 py-10 relative z-10 max-w-2xl mx-auto animate-fadeIn">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-white tracking-wide">Papan Skor</h1>
-        <button
-          onClick={onBack}
-          className="text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg border border-slate-800 transition-colors shadow-sm active:scale-95"
-        >
-          Kembali
-        </button>
-      </div>
+    <div className="min-h-[calc(100vh-57px)] px-4 py-10 relative z-10 max-w-2xl mx-auto animate-fadeIn">
+      <h1 className="text-xl font-bold text-white tracking-wide mb-6">Papan Skor</h1>
 
       <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800 overflow-hidden shadow-xl">
         <div className="grid grid-cols-[60px_1fr_100px] px-5 py-3 bg-slate-950/60 border-b border-slate-800 text-xs font-semibold text-cyan-400">
@@ -364,7 +447,7 @@ function LeaderboardTab({ onBack }: { onBack: () => void }) {
           <span>Pemain</span>
           <span className="text-right">Skor</span>
         </div>
-        
+
         {loading ? (
           <div className="px-5 py-10 text-center text-slate-500 text-sm">Memuat data...</div>
         ) : scores.length === 0 ? (
@@ -387,24 +470,15 @@ function LeaderboardTab({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ProfileTab({ username, userStats, onBack, onEditUsername, onDeleteAccount }: {
+function ProfileTab({ username, userStats, onEditUsername, onDeleteAccount }: {
   username: string;
   userStats: UserStats | null;
-  onBack: () => void;
   onEditUsername: () => void;
   onDeleteAccount: () => void;
 }) {
   return (
-    <div className="min-h-screen px-4 py-10 relative z-10 max-w-2xl mx-auto animate-fadeIn">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-white tracking-wide">Profil Pemain</h1>
-        <button
-          onClick={onBack}
-          className="text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg border border-slate-800 transition-colors shadow-sm active:scale-95"
-        >
-          Kembali
-        </button>
-      </div>
+    <div className="min-h-[calc(100vh-57px)] px-4 py-10 relative z-10 max-w-2xl mx-auto animate-fadeIn">
+      <h1 className="text-xl font-bold text-white tracking-wide mb-6">Profil Pemain</h1>
 
       <div className="bg-slate-900/80 backdrop-blur-md rounded-xl p-6 border border-slate-800 shadow-xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
@@ -518,7 +592,7 @@ function EditUsernameModal({ username, onChange, onSave, onCancel, error }: {
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-sm shadow-2xl">
         <h2 className="text-base font-bold text-white mb-4">Ubah Username</h2>
-        
+
         <input
           type="text"
           value={username}
@@ -528,9 +602,9 @@ function EditUsernameModal({ username, onChange, onSave, onCancel, error }: {
           maxLength={15}
           autoFocus
         />
-        
+
         {error && <p className="text-rose-400 text-xs mb-3">{error}</p>}
-        
+
         <div className="flex gap-2 mt-4">
           <button
             onClick={onSave}
@@ -584,8 +658,8 @@ function MessageToast({ message, type }: { message: string; type: 'success' | 'e
   return (
     <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-fadeIn">
       <div className={`px-4 py-2.5 rounded-xl text-xs font-medium shadow-xl border backdrop-blur-md ${
-        type === 'success' 
-          ? 'bg-slate-900/90 border-emerald-500/40 text-emerald-300' 
+        type === 'success'
+          ? 'bg-slate-900/90 border-emerald-500/40 text-emerald-300'
           : 'bg-slate-900/90 border-rose-500/40 text-rose-300'
       }`}>
         {message}
