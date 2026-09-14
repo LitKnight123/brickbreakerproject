@@ -26,6 +26,7 @@ export default function GamePage() {
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const animationFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+  const playSessionIdRef = useRef<number | null>(null);
   
   // Refs for input state and gameState to avoid recreating gameLoop
   const keysRef = useRef<Set<string>>(new Set());
@@ -46,7 +47,32 @@ export default function GamePage() {
     gameStateRef.current = initialState;
     lastTimeRef.current = performance.now();
     animationFrameRef.current = requestAnimationFrame(gameLoop);
-    return () => cancelAnimationFrame(animationFrameRef.current);
+    
+    // Start play session
+    fetch('/api/playtime', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'start' })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.sessionId) {
+        playSessionIdRef.current = data.sessionId;
+      }
+    })
+    .catch(console.error);
+    
+    return () => {
+      cancelAnimationFrame(animationFrameRef.current);
+      // End play session on unmount
+      if (playSessionIdRef.current) {
+        fetch('/api/playtime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'end', sessionId: playSessionIdRef.current, score: 0 })
+        }).catch(console.error);
+      }
+    };
   }, []);
 
   // Handle keyboard input
@@ -125,6 +151,16 @@ export default function GamePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score: gameState.score })
       }).catch(console.error);
+      
+      // End play session with score
+      if (playSessionIdRef.current) {
+        fetch('/api/playtime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'end', sessionId: playSessionIdRef.current, score: gameState.score })
+        }).catch(console.error);
+        playSessionIdRef.current = null;
+      }
     }
   }, [gameState?.gameOver, scoreSubmitted]);
 

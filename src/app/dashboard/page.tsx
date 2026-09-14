@@ -11,6 +11,15 @@ interface UserStats {
   recent_scores: number[];
 }
 
+interface PlaytimeStats {
+  totalSessions: number;
+  totalPlaytimeSeconds: number;
+  totalPlaytimeFormatted: string;
+  avgSessionSeconds: number;
+  avgSessionFormatted: string;
+  lastSession: string | null;
+}
+
 interface GlobalStats {
   highest_player: string;
   highest_score: number;
@@ -21,14 +30,21 @@ interface GlobalStats {
 export default function DashboardPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
+  const [userRole, setUserRole] = useState('user');
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
+  const [playtimeStats, setPlaytimeStats] = useState<PlaytimeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'main' | 'leaderboard' | 'profile'>('main');
   const [showEditUsername, setShowEditUsername] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editError, setEditError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -52,6 +68,10 @@ export default function DashboardPage() {
       const userData = await userRes.json();
       if (userData.success) {
         setUsername(userData.username);
+        setUserRole(userData.role || 'user');
+        if (userData.playtime) {
+          setPlaytimeStats(userData.playtime);
+        }
       } else {
         router.push('/login');
         return;
@@ -126,6 +146,38 @@ export default function DashboardPage() {
     setShowDeleteConfirm(false);
   };
 
+  const handleChangePassword = async () => {
+    if (newPassword.length < 4) {
+      setPasswordError('Password baru minimal 4 karakter');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Password baru tidak cocok');
+      return;
+    }
+
+    setPasswordError('');
+    try {
+      const res = await fetch('/api/user', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowChangePassword(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setMessage({ text: data.message, type: 'success' });
+      } else {
+        setPasswordError(data.message);
+      }
+    } catch {
+      setPasswordError('Gagal memperbarui password');
+    }
+  };
+
   const startGame = () => {
     router.push('/game');
   };
@@ -164,10 +216,14 @@ export default function DashboardPage() {
       {activeTab === 'profile' && (
         <ProfileTab
           username={username}
+          userRole={userRole}
           userStats={userStats}
+          playtimeStats={playtimeStats}
           onBack={() => setActiveTab('main')}
           onEditUsername={() => { setShowEditUsername(true); setEditUsername(username); setEditError(''); }}
+          onChangePassword={() => { setShowChangePassword(true); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); setPasswordError(''); }}
           onDeleteAccount={() => setShowDeleteConfirm(true)}
+          onGoToAdmin={() => router.push('/admin')}
         />
       )}
 
@@ -187,6 +243,20 @@ export default function DashboardPage() {
           message="Apakah kamu yakin ingin menghapus akun? Tindakan ini tidak dapat dibatalkan."
           onConfirm={handleDeleteAccount}
           onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+
+      {showChangePassword && (
+        <ChangePasswordModal
+          currentPassword={currentPassword}
+          newPassword={newPassword}
+          confirmNewPassword={confirmNewPassword}
+          onCurrentPasswordChange={setCurrentPassword}
+          onNewPasswordChange={setNewPassword}
+          onConfirmNewPasswordChange={setConfirmNewPassword}
+          onSave={handleChangePassword}
+          onCancel={() => setShowChangePassword(false)}
+          error={passwordError}
         />
       )}
 
@@ -270,28 +340,24 @@ function MainMenu({ username, userStats, globalStats, onPlay, onLeaderboard, onP
           onClick={onPlay}
           className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-3 px-4 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-emerald-950/30 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           Mulai Permainan
         </button>
         <button
           onClick={onLeaderboard}
           className="w-full bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 border border-slate-800 hover:border-slate-700 hover:-translate-y-0.5 active:translate-y-0 shadow-sm flex items-center justify-center gap-2"
         >
-          <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"></path></svg>
           Papan Skor
         </button>
         <button
           onClick={onProfile}
           className="w-full bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 border border-slate-800 hover:border-slate-700 hover:-translate-y-0.5 active:translate-y-0 shadow-sm flex items-center justify-center gap-2"
         >
-          <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
           Profil Saya
         </button>
         <button
           onClick={onLogout}
           className="w-full bg-transparent hover:bg-rose-950/20 text-rose-400 font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 border border-rose-950/40 hover:border-rose-900/60 flex items-center justify-center gap-2"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           Keluar
         </button>
       </div>
@@ -387,12 +453,16 @@ function LeaderboardTab({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ProfileTab({ username, userStats, onBack, onEditUsername, onDeleteAccount }: {
+function ProfileTab({ username, userRole, userStats, playtimeStats, onBack, onEditUsername, onChangePassword, onDeleteAccount, onGoToAdmin }: {
   username: string;
+  userRole: string;
   userStats: UserStats | null;
+  playtimeStats: PlaytimeStats | null;
   onBack: () => void;
   onEditUsername: () => void;
+  onChangePassword: () => void;
   onDeleteAccount: () => void;
+  onGoToAdmin: () => void;
 }) {
   return (
     <div className="min-h-screen px-4 py-10 relative z-10 max-w-2xl mx-auto animate-fadeIn">
@@ -411,13 +481,20 @@ function ProfileTab({ username, userStats, onBack, onEditUsername, onDeleteAccou
           <div>
             <span className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">Username</span>
             <h2 className="text-xl font-bold text-white mt-0.5">{username}</h2>
+            <span className="text-xs text-slate-500 mt-0.5 inline-block">Role: <span className="text-amber-400 font-medium">{userRole}</span></span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={onEditUsername}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg border border-slate-700 transition-colors active:scale-95"
             >
               Ubah Username
+            </button>
+            <button
+              onClick={onChangePassword}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg border border-slate-700 transition-colors active:scale-95"
+            >
+              Ubah Password
             </button>
             <button
               onClick={onDeleteAccount}
@@ -428,12 +505,33 @@ function ProfileTab({ username, userStats, onBack, onEditUsername, onDeleteAccou
           </div>
         </div>
 
+        {userRole === 'admin' && (
+          <button
+            onClick={onGoToAdmin}
+            className="w-full bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 font-medium py-2.5 px-4 rounded-lg border border-amber-600/30 transition-colors active:scale-95 text-sm flex items-center justify-center gap-2"
+          >
+            Panel Admin
+          </button>
+        )}
+
         {userStats && (
           <div className="grid grid-cols-2 gap-3">
             <StatBox label="Skor Tertinggi" value={userStats.highest_score} />
             <StatBox label="Rata-rata Skor" value={userStats.average_score} />
             <StatBox label="Permainan Selesai" value={userStats.games_played} />
             <StatBox label="Sesi Terakhir" value={userStats.recent_scores.length} />
+          </div>
+        )}
+
+        {playtimeStats && (
+          <div>
+            <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3">Statistik Waktu Bermain</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <StatBox label="Total Sesi" value={playtimeStats.totalSessions} />
+              <StatBox label="Total Waktu" value={playtimeStats.totalPlaytimeFormatted} />
+              <StatBox label="Rata-rata/Sesi" value={playtimeStats.avgSessionFormatted} />
+              <StatBox label="Sesi Terakhir" value={playtimeStats.lastSession ? new Date(playtimeStats.lastSession).toLocaleDateString('id-ID') : '-'} />
+            </div>
           </div>
         )}
 
@@ -448,7 +546,7 @@ function ProfileTab({ username, userStats, onBack, onEditUsername, onDeleteAccou
   );
 }
 
-function StatBox({ label, value }: { label: string; value: number }) {
+function StatBox({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="bg-slate-950/50 rounded-xl p-3.5 border border-slate-800/80 text-center">
       <p className="text-slate-400 text-xs mb-1">{label}</p>
@@ -571,6 +669,78 @@ function ConfirmModal({ title, message, onConfirm, onCancel }: {
           <button
             onClick={onCancel}
             className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-lg font-medium text-xs transition-colors border border-slate-700 active:scale-95"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChangePasswordModal({ currentPassword, newPassword, confirmNewPassword, onCurrentPasswordChange, onNewPasswordChange, onConfirmNewPasswordChange, onSave, onCancel, error }: {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+  onCurrentPasswordChange: (value: string) => void;
+  onNewPasswordChange: (value: string) => void;
+  onConfirmNewPasswordChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  error: string;
+}) {
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-sm shadow-2xl">
+        <h2 className="text-base font-bold text-white mb-4">Ubah Password</h2>
+        
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Password Saat Ini</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => onCurrentPasswordChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 text-white placeholder-slate-500 border border-slate-800 focus:border-cyan-500 focus:outline-none text-sm transition-colors"
+              placeholder="Masukkan password saat ini"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Password Baru</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => onNewPasswordChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 text-white placeholder-slate-500 border border-slate-800 focus:border-cyan-500 focus:outline-none text-sm transition-colors"
+              placeholder="Masukkan password baru (min 4 karakter)"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Konfirmasi Password Baru</label>
+            <input
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => onConfirmNewPasswordChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onSave(); if (e.key === 'Escape') onCancel(); }}
+              className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 text-white placeholder-slate-500 border border-slate-800 focus:border-cyan-500 focus:outline-none text-sm transition-colors"
+              placeholder="Ulangi password baru"
+            />
+          </div>
+        </div>
+        
+        {error && <p className="text-rose-400 text-xs mt-3">{error}</p>}
+        
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={onSave}
+            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-medium text-xs transition-colors active:scale-95"
+          >
+            Simpan
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-lg font-medium text-xs border border-slate-700 transition-colors active:scale-95"
           >
             Batal
           </button>

@@ -12,8 +12,14 @@ export async function POST(request: NextRequest) {
     const result = loginUser(username, password);
     
     if (result.success) {
-      const response = NextResponse.json({ success: true, userId: result.userId, message: result.message });
+      const response = NextResponse.json({ success: true, userId: result.userId, role: result.role, message: result.message });
       response.cookies.set('userId', String(result.userId), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7
+      });
+      response.cookies.set('userRole', result.role || 'user', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
